@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 let plants = JSON.parse(localStorage.getItem('plantnest-plants') || '[]');
 let plantPhoto = null;
 let issuePhoto = null;
+let identificationResults = [];
 
 const emojis = ['🪴', '🌿', '🌱', '🌵', '🌸', '🌻', '🍃'];
 
@@ -71,6 +72,7 @@ function closeAdd() {
   $('photo').value = '';
   $('plantPreview').classList.add('hide');
   plantPhoto = null;
+  identificationResults = [];
 
   const output = $('identifyResult');
   if (output) output.replaceChildren();
@@ -87,6 +89,12 @@ $('closeCare').onclick = () => {
 };
 
 $('photo').onchange = e => {
+  plantPhoto = null;
+  identificationResults = [];
+
+  const output = $('identifyResult');
+  if (output) output.replaceChildren();
+
   readImage(e.target.files[0], d => {
     plantPhoto = d;
     $('plantPreview').src = d;
@@ -94,9 +102,7 @@ $('photo').onchange = e => {
   });
 };
 
-/* AI plant identification */
-const photoInput = $('photo');
-
+/* AI identification controls */
 if (!document.getElementById('identifyPlant')) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -107,8 +113,113 @@ if (!document.getElementById('identifyPlant')) {
   output.id = 'identifyResult';
   output.setAttribute('aria-live', 'polite');
 
-  photoInput.insertAdjacentElement('afterend', button);
+  $('photo').insertAdjacentElement('afterend', button);
   button.insertAdjacentElement('afterend', output);
+}
+
+function showIdentificationResults(results) {
+  const output = $('identifyResult');
+  output.replaceChildren();
+  identificationResults = results;
+
+  const heading = document.createElement('h3');
+  heading.textContent = '🌱 Choose the correct plant';
+  output.appendChild(heading);
+
+  const instruction = document.createElement('p');
+  instruction.textContent =
+    'Select one result. The plant name will be filled in, but it will not be saved until you press Save Plant.';
+  output.appendChild(instruction);
+
+  results.forEach((item, index) => {
+    const species = item.species || {};
+    const commonName =
+      species.commonNames?.[0] || '';
+    const scientificName =
+      species.scientificNameWithoutAuthor ||
+      species.scientificName ||
+      'Scientific name unavailable';
+    const score = Math.round((item.score || 0) * 100);
+
+    const label = document.createElement('label');
+    label.style.display = 'block';
+    label.style.padding = '12px';
+    label.style.margin = '8px 0';
+    label.style.border = '1px solid #ccc';
+    label.style.borderRadius = '8px';
+    label.style.cursor = 'pointer';
+
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'plantIdentificationChoice';
+    radio.value = String(index);
+    radio.checked = index === 0;
+    radio.style.marginRight = '8px';
+
+    const title = document.createElement('strong');
+    title.textContent =
+      `${index + 1}. ${commonName || scientificName}`;
+
+    const scientific = document.createElement('div');
+    scientific.textContent = commonName
+      ? scientificName
+      : 'Common name unavailable';
+    scientific.style.fontStyle = 'italic';
+    scientific.style.marginTop = '4px';
+
+    const confidence = document.createElement('div');
+    confidence.textContent = `Match score: ${score}%`;
+    confidence.style.marginTop = '4px';
+
+    label.appendChild(radio);
+    label.appendChild(title);
+    label.appendChild(scientific);
+    label.appendChild(confidence);
+
+    output.appendChild(label);
+  });
+
+  const selectButton = document.createElement('button');
+  selectButton.type = 'button';
+  selectButton.textContent = 'Use Selected Plant';
+
+  selectButton.onclick = () => {
+    const selected = output.querySelector(
+      'input[name="plantIdentificationChoice"]:checked'
+    );
+
+    if (!selected) {
+      alert('Please select a plant first.');
+      return;
+    }
+
+    const item = identificationResults[Number(selected.value)];
+    const species = item.species || {};
+    const commonName = species.commonNames?.[0] || '';
+    const scientificName =
+      species.scientificNameWithoutAuthor ||
+      species.scientificName ||
+      '';
+
+    $('name').value = commonName || scientificName;
+
+    const confirmation = document.createElement('p');
+    confirmation.textContent =
+      `Selected: ${$('name').value}. Review the name, then press Save Plant.`;
+
+    const oldConfirmation = output.querySelector('.plant-choice-confirmation');
+    if (oldConfirmation) oldConfirmation.remove();
+
+    confirmation.className = 'plant-choice-confirmation';
+    output.appendChild(confirmation);
+  };
+
+  output.appendChild(selectButton);
+
+  const note = document.createElement('p');
+  note.textContent =
+    'Match scores are estimates, not guaranteed probabilities. Check the plant before relying on the result.';
+  output.appendChild(note);
 }
 
 $('identifyPlant').onclick = async () => {
@@ -133,6 +244,7 @@ $('identifyPlant').onclick = async () => {
 
   button.disabled = true;
   output.textContent = 'Identifying your plant. Please wait...';
+  identificationResults = [];
 
   try {
     const form = new FormData();
@@ -158,37 +270,7 @@ $('identifyPlant').onclick = async () => {
       return;
     }
 
-    output.replaceChildren();
-
-    const heading = document.createElement('p');
-    heading.textContent = '🌱 AI identification results:';
-    output.appendChild(heading);
-
-    data.results.slice(0, 3).forEach((item, index) => {
-      const species = item.species || {};
-      const commonName = species.commonNames?.[0];
-      const scientificName =
-        species.scientificNameWithoutAuthor ||
-        species.scientificName ||
-        'Unknown plant';
-
-      const line = document.createElement('p');
-      line.textContent =
-        `${index + 1}. ${commonName || scientificName}` +
-        ` — ${Math.round((item.score || 0) * 100)}% match` +
-        (commonName ? ` (${scientificName})` : '');
-
-      output.appendChild(line);
-
-      if (index === 0) {
-        $('name').value = commonName || scientificName;
-      }
-    });
-
-    const note = document.createElement('p');
-    note.textContent =
-      'Review the suggested name before saving. AI identification may be incorrect.';
-    output.appendChild(note);
+    showIdentificationResults(data.results.slice(0, 3));
 
   } catch (error) {
     output.textContent =
@@ -199,6 +281,8 @@ $('identifyPlant').onclick = async () => {
 };
 
 $('issuePhoto').onchange = e => {
+  issuePhoto = null;
+
   readImage(e.target.files[0], d => {
     issuePhoto = d;
     $('issuePreview').src = d;
@@ -245,7 +329,7 @@ function advice(name, location) {
     season: 'Hot Indian summers can dry pots quickly. During monsoon, check moisture and drainage before watering. Cooler weather often means slower growth.'
   };
 
-  if (/tulsi|holy basil/.test(n)) {
+  if (/tulsi|tulasi|holy basil|ocimum tenuiflorum/.test(n)) {
     Object.assign(a, {
       emoji: '🌿',
       water: 'Water when the top layer begins to dry; do not leave roots sitting in water.',
