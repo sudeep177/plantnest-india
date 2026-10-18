@@ -428,62 +428,159 @@ document.querySelectorAll('.tab').forEach(b => {
   };
 });
 
-$('diagnose').onclick = () => {
-  const s = $('symptom').value.toLowerCase().trim();
-  const p = plants.find(x => x.id === $('which').value);
 
-  if (!s && !issuePhoto) {
+$('diagnose').onclick = async () => {
+  const symptom = $('symptom').value.trim();
+  const s = symptom.toLowerCase();
+  const plant = plants.find(x => x.id === $('which').value);
+  const file = $('issuePhoto').files[0];
+  const result = $('result');
+  const button = $('diagnose');
+
+  if (!symptom && !file) {
     alert('Upload a photo or describe a symptom first.');
     return;
   }
 
-  const items = [];
+  result.classList.remove('hide');
+  result.replaceChildren();
+
+  const heading = document.createElement('h3');
+  heading.textContent = '🌿 Plant health check';
+  result.appendChild(heading);
+
+  if (plant) {
+    const p = document.createElement('p');
+    p.textContent = 'Plant: ' + plant.name;
+    result.appendChild(p);
+  }
+
+  if (file) {
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      result.append('Please choose a JPG or PNG photo.');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      result.append('Please choose a photo smaller than 8 MB.');
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Analysing photo...';
+
+    const status = document.createElement('p');
+    status.textContent = 'Checking for possible diseases or pests...';
+    result.appendChild(status);
+
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      form.append('organ', 'auto');
+
+      const response = await fetch(
+        'https://plantnest-api.sudeep17.workers.dev/disease',
+        { method: 'POST', body: form }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Disease identification failed.');
+      }
+
+      status.remove();
+
+      const results = Array.isArray(data.results) ? data.results : [];
+
+      if (!results.length) {
+        const p = document.createElement('p');
+        p.textContent =
+          'No likely disease match found. Try a clear close-up of the affected leaf.';
+        result.appendChild(p);
+      } else {
+        const intro = document.createElement('p');
+        intro.textContent = 'Possible matches, ranked by AI score:';
+        result.appendChild(intro);
+
+        const list = document.createElement('ol');
+
+        results.slice(0, 5).forEach(item => {
+          const li = document.createElement('li');
+          const label = item.label || item.description || item.name ||
+            'Unlabelled possible disease';
+          const score = Number(item.score);
+
+          li.textContent = label +
+            (Number.isFinite(score)
+              ? ' — match score ' + Math.round(score * 100) + '%'
+              : '');
+
+          list.appendChild(li);
+        });
+
+        result.appendChild(list);
+      }
+
+      if (symptom) {
+        const p = document.createElement('p');
+        p.textContent = 'Your symptom notes: ' + symptom;
+        result.appendChild(p);
+      }
+
+      const caution = document.createElement('p');
+      caution.textContent =
+        'Preliminary AI suggestions only, not a confirmed diagnosis. Coverage is limited. Inspect the plant carefully before choosing treatment.';
+      result.appendChild(caution);
+
+    } catch (error) {
+      status.textContent = 'Could not analyse the photo: ' + error.message;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Diagnose';
+    }
+
+    return;
+  }
+
+  const advice = [];
 
   if (/yellow|pale/.test(s)) {
-    items.push('Check soil moisture and drainage: both consistently wet soil and prolonged dryness can cause yellowing.');
+    advice.push('Check soil moisture, drainage and light exposure.');
   }
-
   if (/brown|crisp|tip|dry edge/.test(s)) {
-    items.push('Check irregular watering, hot direct sun, low humidity, or fertilizer buildup.');
+    advice.push('Check watering consistency, heat exposure and fertilizer buildup.');
   }
-
   if (/droop|wilt|limp/.test(s)) {
-    items.push('Check soil before watering. Wilting can result from dry soil or waterlogged roots.');
+    advice.push('Check soil before watering; both dry soil and waterlogged roots can cause wilting.');
   }
-
   if (/spot|powder/.test(s)) {
-    items.push('Consider isolating the plant, improving airflow, and photographing both sides of affected leaves. Identify the issue before applying treatment.');
+    advice.push('Inspect both sides of leaves and improve airflow.');
   }
-
   if (/bug|insect|web|mite|aphid|mealy/.test(s)) {
-    items.push('Inspect leaf undersides and stems. Isolate the plant and gently rinse visible pests; identify them before choosing treatment.');
+    advice.push('Inspect leaf undersides and isolate the plant if pests are present.');
   }
-
   if (/rot|soft stem|smell|black/.test(s)) {
-    items.push('Check for waterlogged soil and soft, dark roots or stems. Stop standing water and seek plant-specific advice before treatment.');
+    advice.push('Check drainage and look for soft, dark roots or stems.');
+  }
+  if (!advice.length) {
+    advice.push('Check soil moisture, drainage, light and leaf undersides.');
   }
 
-  if (!items.length) {
-    items.push('Check soil moisture, drainage, light exposure, recent changes, and leaf undersides. Compare new and old growth.');
-  }
+  const list = document.createElement('ul');
+  advice.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    list.appendChild(li);
+  });
+  result.appendChild(list);
 
-  items.push('Change one factor at a time, observe new growth, and avoid mixing pesticides or home remedies.');
-
-  $('result').innerHTML = `
-    <h3>Possible causes to check</h3>
-    <p>
-      ${p ? 'Plant: <b>' + esc(p.name) + '</b>. ' : ''}
-      ${issuePhoto ? 'A photo is selected, but this version does not analyse image pixels. ' : ''}
-      Based on your description:
-    </p>
-    <ul>${items.map(x => `<li>${x}</li>`).join('')}</ul>
-    <p>
-      <b>To narrow it down:</b> note watering frequency, sunlight hours, and whether soil below the surface is wet or dry.
-    </p>
-  `;
-
-  $('result').classList.remove('hide');
+  const note = document.createElement('p');
+  note.textContent =
+    'General guidance only. Upload a clear photo to try AI disease identification.';
+  result.appendChild(note);
 };
+
 
 $('notify').onclick = async () => {
   if (!('Notification' in window)) {
