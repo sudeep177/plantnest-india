@@ -491,36 +491,72 @@ $('diagnose').onclick = async () => {
 
       status.remove();
 
-      const results = Array.isArray(data.results) ? data.results : [];
+      
+const results = Array.isArray(data.results) ? data.results : [];
 
-      if (!results.length) {
-        const p = document.createElement('p');
-        p.textContent =
-          'No likely disease match found. Try a clear close-up of the affected leaf.';
-        result.appendChild(p);
-      } else {
-        const intro = document.createElement('p');
-        intro.textContent = 'Possible matches, ranked by AI score:';
-        result.appendChild(intro);
+const scoredResults = results
+  .map(item => ({
+    ...item,
+    score: Number(item.score)
+  }))
+  .filter(item => Number.isFinite(item.score))
+  .sort((a, b) => b.score - a.score);
 
-        const list = document.createElement('ol');
+const bestScore = scoredResults.length
+  ? scoredResults[0].score
+  : 0;
 
-        results.slice(0, 5).forEach(item => {
-          const li = document.createElement('li');
-          const label = item.label || item.description || item.name ||
-            'Unlabelled possible disease';
-          const score = Number(item.score);
+// Scores are treated as API match scores, not confirmed probabilities.
+if (!scoredResults.length || bestScore < 0.10) {
+  const noMatch = document.createElement('p');
+  noMatch.textContent =
+    'No reliable disease match was found for this photo. The AI results are inconclusive, so we cannot identify a disease confidently.';
+  result.appendChild(noMatch);
 
-          li.textContent = label +
-            (Number.isFinite(score)
-              ? ' — match score ' + Math.round(score * 100) + '%'
-              : '');
+  const tipsHeading = document.createElement('h4');
+  tipsHeading.textContent = 'What to check next';
+  result.appendChild(tipsHeading);
 
-          list.appendChild(li);
-        });
+  const tips = document.createElement('ul');
 
-        result.appendChild(list);
-      }
+  [
+    'Take a close-up photo of the affected leaf in good natural light.',
+    'Check both sides of the leaves for spots, insects, or powdery growth.',
+    'Check soil moisture and drainage before watering again.',
+    'Avoid applying pesticides until you have a clearer idea of the cause.'
+  ].forEach(text => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    tips.appendChild(li);
+  });
+
+  result.appendChild(tips);
+} else {
+  const intro = document.createElement('p');
+  intro.textContent = 'Possible disease matches (not confirmed diagnoses):';
+  result.appendChild(intro);
+
+  const list = document.createElement('ol');
+
+  scoredResults.slice(0, 5).forEach(item => {
+    const li = document.createElement('li');
+
+    const label =
+      item.label ||
+      item.description ||
+      item.name ||
+      'Possible disease';
+
+    li.textContent =
+      label + ' — API match score ' +
+      Math.round(item.score * 100) + '%';
+
+    list.appendChild(li);
+  });
+
+  result.appendChild(list);
+}
+
 
       if (symptom) {
         const p = document.createElement('p');
