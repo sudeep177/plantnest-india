@@ -22,10 +22,19 @@ function saveCareRecords() {
   );
 }
 
+
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
     return;
   }
+
+  if (!careRecords[plantId]) {
+    careRecords[plantId] = {};
+  }
+
+  careRecords[plantId][activity] = new Date().toISOString();
+  saveCareRecords();
+}
 
 function careDateLabel(dateString) {
   if (!dateString) return 'Not recorded yet';
@@ -61,15 +70,9 @@ function logPlantCare(plantId, activity) {
 
   render();
 }
-  window.logPlantCare = logPlantCare;
 
-  if (!careRecords[plantId]) {
-    careRecords[plantId] = {};
-  }
+window.logPlantCare = logPlantCare;
 
-  careRecords[plantId][activity] = new Date().toISOString();
-  saveCareRecords();
-}
 
 let plantPhoto = null;
 let issuePhoto = null;
