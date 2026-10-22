@@ -27,6 +27,41 @@ function recordPlantCare(plantId, activity) {
     return;
   }
 
+function careDateLabel(dateString) {
+  if (!dateString) return 'Not recorded yet';
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) return 'Not recorded yet';
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+function logPlantCare(plantId, activity) {
+  const plant = plants.find(p => String(p.id) === String(plantId));
+
+  if (!plant) {
+    alert('Plant not found. Please refresh the page and try again.');
+    return;
+  }
+
+  recordPlantCare(plantId, activity);
+
+  const activityLabel =
+    activity === 'watering' ? 'Watering' : 'Fertilising';
+
+  alert(
+    activityLabel + ' recorded for ' + plant.name +
+    ' on ' + careDateLabel(careRecords[plantId][activity]) + '.'
+  );
+
+  render();
+}
+
   if (!careRecords[plantId]) {
     careRecords[plantId] = {};
   }
