@@ -108,10 +108,13 @@ function render() {
       <div class="cardinfo">
         <h3>${esc(p.name)}</h3>
         <p>📍 ${esc(p.location)}</p>
-        <div class="actions">
-          <button onclick="showCare('${p.id}')">Care guide</button>
-          <button class="del" onclick="removePlant('${p.id}')">Remove</button>
-        </div>
+<div class="actions">
+  <button onclick="showCare('${p.id}')">Care guide</button>
+  <button onclick="logPlantCare('${p.id}', 'watering')">💧 Watered</button>
+  <button onclick="logPlantCare('${p.id}', 'fertilizing')">🌱 Fertilised</button>
+  <button class="del" onclick="removePlant('${p.id}')">Remove</button>
+</div>
+
       </div>
     </article>
   `).join('');
