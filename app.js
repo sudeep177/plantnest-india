@@ -2,6 +2,39 @@
 const $ = id => document.getElementById(id);
 
 let plants = JSON.parse(localStorage.getItem('plantnest-plants') || '[]');
+
+const CARE_STORAGE_KEY = 'plantnest-care-records';
+
+let careRecords = {};
+
+try {
+  careRecords = JSON.parse(
+    localStorage.getItem(CARE_STORAGE_KEY) || '{}'
+  ) || {};
+} catch (error) {
+  careRecords = {};
+}
+
+function saveCareRecords() {
+  localStorage.setItem(
+    CARE_STORAGE_KEY,
+    JSON.stringify(careRecords)
+  );
+}
+
+function recordPlantCare(plantId, activity) {
+  if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
+    return;
+  }
+
+  if (!careRecords[plantId]) {
+    careRecords[plantId] = {};
+  }
+
+  careRecords[plantId][activity] = new Date().toISOString();
+  saveCareRecords();
+}
+
 let plantPhoto = null;
 let issuePhoto = null;
 let identificationResults = [];
