@@ -185,12 +185,15 @@ function render() {
           <p>🌱 Last fertilised: ${careDateLabel(careRecords[p.id]?.fertilizing)}</p>
         </div>
 
+
 <div class="actions">
   <button onclick="showCare('${p.id}')">Care guide</button>
   <button onclick="window.logPlantCare('${p.id}', 'watering')">💧 Watered</button>
-<button onclick="window.logPlantCare('${p.id}', 'fertilizing')">🌱 Fertilised</button>
+  <button onclick="window.logPlantCare('${p.id}', 'fertilizing')">🌱 Fertilised</button>
+  <button onclick="window.showCareSchedule('${p.id}')">⚙️ Care schedule</button>
   <button class="del" onclick="removePlant('${p.id}')">Remove</button>
 </div>
+
 
       </div>
     </article>
