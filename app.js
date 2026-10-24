@@ -62,6 +62,33 @@ function getPlantSchedule(plantId, activity) {
   return DEFAULT_CARE_SCHEDULE[activity];
 }
 
+function setPlantSchedule(plantId, activity, mode, intervalDays) {
+  if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
+    return;
+  }
+
+  if (!['recommended', 'custom'].includes(mode)) {
+    return;
+  }
+
+  const days = Number(intervalDays);
+
+  if (!Number.isFinite(days) || days < 1 || days > 365) {
+    return;
+  }
+
+  if (!careSchedules[plantId]) {
+    careSchedules[plantId] = {};
+  }
+
+  careSchedules[plantId][activity] = {
+    mode,
+    intervalDays: days
+  };
+
+  saveCareSchedules();
+}
+
 
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
