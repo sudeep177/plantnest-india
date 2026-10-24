@@ -41,6 +41,27 @@ function saveCareSchedules() {
   );
 }
 
+const DEFAULT_CARE_SCHEDULE = {
+  watering: {
+    mode: 'recommended',
+    intervalDays: 2
+  },
+  fertilizing: {
+    mode: 'recommended',
+    intervalDays: 30
+  }
+};
+
+function getPlantSchedule(plantId, activity) {
+  const saved = careSchedules[plantId]?.[activity];
+
+  if (saved && Number.isFinite(saved.intervalDays)) {
+    return saved;
+  }
+
+  return DEFAULT_CARE_SCHEDULE[activity];
+}
+
 
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
