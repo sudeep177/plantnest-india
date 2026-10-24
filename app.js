@@ -22,6 +22,25 @@ function saveCareRecords() {
   );
 }
 
+const SCHEDULE_STORAGE_KEY = 'plantnest-care-schedules';
+
+let careSchedules = {};
+
+try {
+  careSchedules = JSON.parse(
+    localStorage.getItem(SCHEDULE_STORAGE_KEY) || '{}'
+  ) || {};
+} catch (error) {
+  careSchedules = {};
+}
+
+function saveCareSchedules() {
+  localStorage.setItem(
+    SCHEDULE_STORAGE_KEY,
+    JSON.stringify(careSchedules)
+  );
+}
+
 
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
