@@ -112,6 +112,12 @@ function render() {
       <div class="cardinfo">
         <h3>${esc(p.name)}</h3>
         <p>📍 ${esc(p.location)}</p>
+        
+        <div class="care-history">
+          <p>💧 Last watered: ${careDateLabel(careRecords[p.id]?.watering)}</p>
+          <p>🌱 Last fertilised: ${careDateLabel(careRecords[p.id]?.fertilizing)}</p>
+        </div>
+
 <div class="actions">
   <button onclick="showCare('${p.id}')">Care guide</button>
   <button onclick="window.logPlantCare('${p.id}', 'watering')">💧 Watered</button>
