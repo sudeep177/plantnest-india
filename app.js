@@ -89,6 +89,80 @@ function setPlantSchedule(plantId, activity, mode, intervalDays) {
   saveCareSchedules();
 }
 
+function showCareSchedule(plantId) {
+  const plant = plants.find(p => String(p.id) === String(plantId));
+
+  if (!plant) {
+    alert('Plant not found. Please refresh the page and try again.');
+    return;
+  }
+
+  const watering = getPlantSchedule(plantId, 'watering');
+  const fertilizing = getPlantSchedule(plantId, 'fertilizing');
+
+  const waterMode = prompt(
+    'Watering schedule for ' + plant.name +
+    '\nEnter R for recommended or C for custom:',
+    watering.mode === 'custom' ? 'C' : 'R'
+  );
+
+  if (waterMode === null) return;
+
+  let waterDays = watering.intervalDays;
+  const waterChoice = waterMode.trim().toLowerCase();
+
+  if (waterChoice === 'c') {
+    const answer = prompt('Watering interval in days (1–365):', waterDays);
+    if (answer === null) return;
+    waterDays = Number(answer);
+  } else if (waterChoice === 'r') {
+    waterDays = DEFAULT_CARE_SCHEDULE.watering.intervalDays;
+  } else {
+    alert('Please enter R or C.');
+    return;
+  }
+
+  if (!Number.isFinite(waterDays) || waterDays < 1 || waterDays > 365) {
+    alert('Enter a number from 1 to 365 for watering.');
+    return;
+  }
+
+  const fertMode = prompt(
+    'Fertilising schedule for ' + plant.name +
+    '\nEnter R for recommended or C for custom:',
+    fertilizing.mode === 'custom' ? 'C' : 'R'
+  );
+
+  if (fertMode === null) return;
+
+  let fertDays = fertilizing.intervalDays;
+  const fertChoice = fertMode.trim().toLowerCase();
+
+  if (fertChoice === 'c') {
+    const answer = prompt('Fertilising interval in days (1–365):', fertDays);
+    if (answer === null) return;
+    fertDays = Number(answer);
+  } else if (fertChoice === 'r') {
+    fertDays = DEFAULT_CARE_SCHEDULE.fertilizing.intervalDays;
+  } else {
+    alert('Please enter R or C.');
+    return;
+  }
+
+  if (!Number.isFinite(fertDays) || fertDays < 1 || fertDays > 365) {
+    alert('Enter a number from 1 to 365 for fertilising.');
+    return;
+  }
+
+  setPlantSchedule(plantId, 'watering', waterChoice === 'c' ? 'custom' : 'recommended', waterDays);
+  setPlantSchedule(plantId, 'fertilizing', fertChoice === 'c' ? 'custom' : 'recommended', fertDays);
+
+  alert('Care schedules saved for ' + plant.name + '.');
+  render();
+}
+
+window.showCareSchedule = showCareSchedule;
+
 
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
