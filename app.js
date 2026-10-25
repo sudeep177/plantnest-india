@@ -41,6 +41,25 @@ function saveCareSchedules() {
   );
 }
 
+const GROWING_CONDITIONS_KEY = 'plantnest-growing-conditions';
+
+let growingConditions = {};
+
+try {
+  growingConditions = JSON.parse(
+    localStorage.getItem(GROWING_CONDITIONS_KEY) || '{}'
+  ) || {};
+} catch (error) {
+  growingConditions = {};
+}
+
+function saveGrowingConditions() {
+  localStorage.setItem(
+    GROWING_CONDITIONS_KEY,
+    JSON.stringify(growingConditions)
+  );
+}
+
 
 const DEFAULT_CARE_SCHEDULE = {
   watering: {
