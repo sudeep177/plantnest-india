@@ -504,7 +504,15 @@ function render() {
       <div class="cardinfo">
         <h3>${esc(p.name)}</h3>
         <p>📍 ${esc(p.location)}</p>
-        
+ ${growingConditions[p.id] ? `
+  <div class="growing-conditions">
+    <p>🌿 Growing: ${esc(growingConditions[p.id].location)}</p>
+    <p>☀️ Sunlight: ${esc(growingConditions[p.id].sunlight)}</p>
+    <p>🪴 Pot size: ${esc(growingConditions[p.id].potSize)}</p>
+    <p>💧 Drainage holes: ${esc(growingConditions[p.id].drainage)}</p>
+  </div>
+` : ''}
+
        
 <div class="care-history">
   <p>💧 Last watered: ${careDateLabel(careRecords[p.id]?.watering)}</p>
