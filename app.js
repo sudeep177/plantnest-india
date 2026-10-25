@@ -328,12 +328,47 @@ function render() {
     ).join('');
 }
 
+
 function readImage(file, cb) {
   if (!file) return;
-  const r = new FileReader();
-  r.onload = () => cb(r.result);
-  r.readAsDataURL(file);
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const image = new Image();
+
+    image.onload = () => {
+      const maxSize = 1000;
+      const scale = Math.min(
+        1,
+        maxSize / Math.max(image.width, image.height)
+      );
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const compressedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      cb(compressedPhoto);
+    };
+
+    image.onerror = () => {
+      alert('Could not process this photo. Please try another image.');
+    };
+
+    image.src = reader.result;
+  };
+
+  reader.onerror = () => {
+    alert('Could not read this photo. Please try again.');
+  };
+
+  reader.readAsDataURL(file);
 }
+
 
 function openAdd() {
   $('addModal').classList.remove('hide');
