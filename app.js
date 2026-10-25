@@ -41,6 +41,7 @@ function saveCareSchedules() {
   );
 }
 
+
 const DEFAULT_CARE_SCHEDULE = {
   watering: {
     mode: 'recommended',
@@ -51,6 +52,65 @@ const DEFAULT_CARE_SCHEDULE = {
     intervalDays: 30
   }
 };
+
+const PLANT_CARE_RECOMMENDATIONS = {
+  tulasi: {
+    watering: 2,
+    fertilizing: 30
+  },
+  basil: {
+    watering: 2,
+    fertilizing: 30
+  },
+  mint: {
+    watering: 1,
+    fertilizing: 30
+  },
+  aloe: {
+    watering: 10,
+    fertilizing: 60
+  },
+  'snake plant': {
+    watering: 10,
+    fertilizing: 60
+  },
+  money: {
+    watering: 5,
+    fertilizing: 45
+  },
+  hibiscus: {
+    watering: 2,
+    fertilizing: 30
+  },
+  rose: {
+    watering: 2,
+    fertilizing: 30
+  },
+  tomato: {
+    watering: 1,
+    fertilizing: 14
+  }
+};
+
+function getRecommendedInterval(plantId, activity) {
+  const plant = plants.find(p => String(p.id) === String(plantId));
+
+  if (!plant) {
+    return DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+  }
+
+  const name = String(plant.name || '').trim().toLowerCase();
+
+  for (const plantType of Object.keys(PLANT_CARE_RECOMMENDATIONS)) {
+    if (name.includes(plantType)) {
+      return PLANT_CARE_RECOMMENDATIONS[plantType][activity]
+        ?? DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+    }
+  }
+
+  return DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+}
+
 
 function getPlantSchedule(plantId, activity) {
   const saved = careSchedules[plantId]?.[activity];
