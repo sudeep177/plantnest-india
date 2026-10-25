@@ -112,6 +112,7 @@ function getRecommendedInterval(plantId, activity) {
 }
 
 
+
 function getPlantSchedule(plantId, activity) {
   const saved = careSchedules[plantId]?.[activity];
 
@@ -119,8 +120,12 @@ function getPlantSchedule(plantId, activity) {
     return saved;
   }
 
-  return DEFAULT_CARE_SCHEDULE[activity];
+  return {
+    mode: 'recommended',
+    intervalDays: getRecommendedInterval(plantId, activity)
+  };
 }
+
 
 function setPlantSchedule(plantId, activity, mode, intervalDays) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
