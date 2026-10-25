@@ -191,6 +191,47 @@ function careDateLabel(dateString) {
   });
 }
 
+function nextCareDateLabel(plantId, activity) {
+  const lastCareDate = careRecords[plantId]?.[activity];
+
+  if (!lastCareDate) {
+    return 'Not recorded yet';
+  }
+
+  const lastDate = new Date(lastCareDate);
+
+  if (Number.isNaN(lastDate.getTime())) {
+    return 'Not recorded yet';
+  }
+
+  const schedule = getPlantSchedule(plantId, activity);
+  const nextDate = new Date(lastDate);
+
+  nextDate.setDate(nextDate.getDate() + schedule.intervalDays);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  nextDate.setHours(0, 0, 0, 0);
+
+  if (nextDate.getTime() < today.getTime()) {
+    return 'Overdue · ' + careDateLabel(nextDate);
+  }
+
+  if (nextDate.getTime() === today.getTime()) {
+    return 'Due today';
+  }
+
+  return careDateLabel(nextDate);
+}
+
+function careScheduleLabel(plantId, activity) {
+  const schedule = getPlantSchedule(plantId, activity);
+
+  return schedule.mode === 'custom'
+    ? 'Custom · every ' + schedule.intervalDays + ' days'
+    : 'Recommended · every ' + schedule.intervalDays + ' days';
+}
+
 function logPlantCare(plantId, activity) {
   const plant = plants.find(p => String(p.id) === String(plantId));
 
