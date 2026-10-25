@@ -295,10 +295,17 @@ function render() {
         <h3>${esc(p.name)}</h3>
         <p>📍 ${esc(p.location)}</p>
         
-        <div class="care-history">
-          <p>💧 Last watered: ${careDateLabel(careRecords[p.id]?.watering)}</p>
-          <p>🌱 Last fertilised: ${careDateLabel(careRecords[p.id]?.fertilizing)}</p>
-        </div>
+       
+<div class="care-history">
+  <p>💧 Last watered: ${careDateLabel(careRecords[p.id]?.watering)}</p>
+  <p>📅 Next watering: ${nextCareDateLabel(p.id, 'watering')}</p>
+  <p><small>${careScheduleLabel(p.id, 'watering')}</small></p>
+
+  <p>🌱 Last fertilised: ${careDateLabel(careRecords[p.id]?.fertilizing)}</p>
+  <p>📅 Next fertilising: ${nextCareDateLabel(p.id, 'fertilizing')}</p>
+  <p><small>${careScheduleLabel(p.id, 'fertilizing')}</small></p>
+</div>
+
 
 
 <div class="actions">
