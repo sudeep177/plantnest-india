@@ -414,6 +414,7 @@ function render() {
   <button onclick="window.logPlantCare('${p.id}', 'watering')">💧 Watered</button>
   <button onclick="window.logPlantCare('${p.id}', 'fertilizing')">🌱 Fertilised</button>
   <button onclick="window.showCareSchedule('${p.id}')">⚙️ Care schedule</button>
+  <button onclick="window.showGrowingConditions('${p.id}')">🌿 Growing conditions</button>
   <button class="del" onclick="removePlant('${p.id}')">Remove</button>
 </div>
 
