@@ -59,137 +59,8 @@ function saveGrowingConditions() {
     JSON.stringify(growingConditions)
   );
 }
-function setGrowingConditions(
-  plantId,
-  location,
-  sunlight,
-  potSize,
-  drainage
-)
-function showGrowingConditions(plantId) {
-  const plant = plants.find(
-    p => String(p.id) === String(plantId)
-  );
 
-  if (!plant) {
-    alert('Plant not found. Please refresh and try again.');
-    return;
-  }
 
-  const current = growingConditions[plantId] || {};
-
-  const location = prompt(
-    'Where is your plant growing?\n\nI = Indoors\nB = Balcony\nG = Garden',
-    current.location || 'balcony'
-  );
-
-  if (location === null) return;
-
-  const locationMap = {
-    i: 'indoors',
-    b: 'balcony',
-    g: 'garden',
-    indoors: 'indoors',
-    balcony: 'balcony',
-    garden: 'garden'
-  };
-
-  const selectedLocation = locationMap[
-    location.trim().toLowerCase()
-  ];
-
-  if (!selectedLocation) {
-    alert('Please enter indoors, balcony, or garden.');
-    return;
-  }
-
-  const sunlight = prompt(
-    'What sunlight does your plant receive?\n\nL = Low light\nI = Indirect sunlight\nD = Direct sunlight',
-    current.sunlight || 'indirect'
-  );
-
-  if (sunlight === null) return;
-
-  const sunlightMap = {
-    l: 'low',
-    i: 'indirect',
-    d: 'direct',
-    low: 'low',
-    indirect: 'indirect',
-    direct: 'direct'
-  };
-
-  const selectedSunlight = sunlightMap[
-    sunlight.trim().toLowerCase()
-  ];
-
-  if (!selectedSunlight) {
-    alert('Please enter low, indirect, or direct.');
-    return;
-  }
-
-  const potSize = prompt(
-    'What is the pot size?\n\nS = Small\nM = Medium\nL = Large',
-    current.potSize || 'medium'
-  );
-
-  if (potSize === null) return;
-
-  const potMap = {
-    s: 'small',
-    m: 'medium',
-    l: 'large',
-    small: 'small',
-    medium: 'medium',
-    large: 'large'
-  };
-
-  const selectedPot = potMap[
-    potSize.trim().toLowerCase()
-  ];
-
-  if (!selectedPot) {
-    alert('Please enter small, medium, or large.');
-    return;
-  }
-
-  const drainage = prompt(
-    'Does the pot have drainage holes?\n\nY = Yes\nN = No',
-    current.drainage || 'yes'
-  );
-
-  if (drainage === null) return;
-
-  const drainageMap = {
-    y: 'yes',
-    n: 'no',
-    yes: 'yes',
-    no: 'no'
-  };
-
-  const selectedDrainage = drainageMap[
-    drainage.trim().toLowerCase()
-  ];
-
-  if (!selectedDrainage) {
-    alert('Please enter yes or no.');
-    return;
-  }
-
-  setGrowingConditions(
-    plantId,
-    selectedLocation,
-    selectedSunlight,
-    selectedPot,
-    selectedDrainage
-  );
-
-  alert('Growing conditions saved for ' + plant.name + '.');
-
-  render();
-}
-
-window.showGrowingConditions = showGrowingConditions;
 const DEFAULT_CARE_SCHEDULE = {
   watering: {
     mode: 'recommended',
@@ -527,7 +398,6 @@ function render() {
   <button onclick="window.logPlantCare('${p.id}', 'fertilizing')">🌱 Fertilised</button>
   <button onclick="window.showCareSchedule('${p.id}')">⚙️ Care schedule</button>
   <button class="del" onclick="removePlant('${p.id}')">Remove</button>
-  <button onclick="window.showGrowingConditions('${p.id}')">🌿 Growing conditions</button>
 </div>
 
 
