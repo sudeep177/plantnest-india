@@ -129,7 +129,9 @@ const PLANT_CARE_RECOMMENDATIONS = {
 };
 
 function getRecommendedInterval(plantId, activity) {
-  const plant = plants.find(p => String(p.id) === String(plantId));
+  const plant = plants.find(
+    p => String(p.id) === String(plantId)
+  );
 
   if (!plant) {
     return DEFAULT_CARE_SCHEDULE[activity].intervalDays;
@@ -137,14 +139,48 @@ function getRecommendedInterval(plantId, activity) {
 
   const name = String(plant.name || '').trim().toLowerCase();
 
+  let interval = DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+
   for (const plantType of Object.keys(PLANT_CARE_RECOMMENDATIONS)) {
     if (name.includes(plantType)) {
-      return PLANT_CARE_RECOMMENDATIONS[plantType][activity]
+      interval =
+        PLANT_CARE_RECOMMENDATIONS[plantType][activity]
         ?? DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+      break;
     }
   }
 
-  return DEFAULT_CARE_SCHEDULE[activity].intervalDays;
+  const conditions = growingConditions[plantId];
+
+  if (!conditions) {
+    return interval;
+  }
+
+  if (activity === 'watering') {
+    if (conditions.sunlight === 'direct') {
+      interval -= 1;
+    }
+
+    if (conditions.sunlight === 'low') {
+      interval += 1;
+    }
+
+    if (conditions.location === 'garden') {
+      interval -= 1;
+    }
+
+    if (conditions.potSize === 'small') {
+      interval -= 1;
+    } else if (conditions.potSize === 'large') {
+      interval += 1;
+    }
+
+    if (conditions.drainage === 'no') {
+      interval += 1;
+    }
+  }
+
+  return Math.max(1, Math.min(365, interval));
 }
 
 
