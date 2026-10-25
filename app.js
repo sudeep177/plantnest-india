@@ -190,19 +190,6 @@ function showGrowingConditions(plantId) {
 }
 
 window.showGrowingConditions = showGrowingConditions;
-{
-  if (!plantId) return;
-
-  growingConditions[plantId] = {
-    location,
-    sunlight,
-    potSize,
-    drainage
-  };
-
-  saveGrowingConditions();
-}
-
 const DEFAULT_CARE_SCHEDULE = {
   watering: {
     mode: 'recommended',
