@@ -59,7 +59,24 @@ function saveGrowingConditions() {
     JSON.stringify(growingConditions)
   );
 }
+function setGrowingConditions(
+  plantId,
+  location,
+  sunlight,
+  potSize,
+  drainage
+) {
+  if (!plantId) return;
 
+  growingConditions[plantId] = {
+    location,
+    sunlight,
+    potSize,
+    drainage
+  };
+
+  saveGrowingConditions();
+}
 
 const DEFAULT_CARE_SCHEDULE = {
   watering: {
