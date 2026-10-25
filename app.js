@@ -263,7 +263,116 @@ function showCareSchedule(plantId) {
 }
 
 window.showCareSchedule = showCareSchedule;
+function showGrowingConditions(plantId) {
+  const plant = plants.find(
+    p => String(p.id) === String(plantId)
+  );
 
+  if (!plant) {
+    alert('Plant not found. Please refresh and try again.');
+    return;
+  }
+
+  const current = growingConditions[plantId] || {};
+
+  const location = prompt(
+    'Where is your plant growing? Enter indoors, balcony, or garden.',
+    current.location || 'balcony'
+  );
+  if (location === null) return;
+
+  const locationMap = {
+    i: 'indoors',
+    b: 'balcony',
+    g: 'garden',
+    indoors: 'indoors',
+    balcony: 'balcony',
+    garden: 'garden'
+  };
+  const selectedLocation =
+    locationMap[location.trim().toLowerCase()];
+
+  if (!selectedLocation) {
+    alert('Enter indoors, balcony, or garden.');
+    return;
+  }
+
+  const sunlight = prompt(
+    'Sunlight: low, indirect, or direct?',
+    current.sunlight || 'indirect'
+  );
+  if (sunlight === null) return;
+
+  const sunlightMap = {
+    l: 'low',
+    i: 'indirect',
+    d: 'direct',
+    low: 'low',
+    indirect: 'indirect',
+    direct: 'direct'
+  };
+  const selectedSunlight =
+    sunlightMap[sunlight.trim().toLowerCase()];
+
+  if (!selectedSunlight) {
+    alert('Enter low, indirect, or direct.');
+    return;
+  }
+
+  const potSize = prompt(
+    'Pot size: small, medium, or large?',
+    current.potSize || 'medium'
+  );
+  if (potSize === null) return;
+
+  const potMap = {
+    s: 'small',
+    m: 'medium',
+    l: 'large',
+    small: 'small',
+    medium: 'medium',
+    large: 'large'
+  };
+  const selectedPot = potMap[potSize.trim().toLowerCase()];
+
+  if (!selectedPot) {
+    alert('Enter small, medium, or large.');
+    return;
+  }
+
+  const drainage = prompt(
+    'Does the pot have drainage holes? Enter yes or no.',
+    current.drainage || 'yes'
+  );
+  if (drainage === null) return;
+
+  const drainageMap = {
+    y: 'yes',
+    n: 'no',
+    yes: 'yes',
+    no: 'no'
+  };
+  const selectedDrainage =
+    drainageMap[drainage.trim().toLowerCase()];
+
+  if (!selectedDrainage) {
+    alert('Enter yes or no.');
+    return;
+  }
+
+  setGrowingConditions(
+    plantId,
+    selectedLocation,
+    selectedSunlight,
+    selectedPot,
+    selectedDrainage
+  );
+
+  alert('Growing conditions saved for ' + plant.name + '.');
+  render();
+}
+
+window.showGrowingConditions = showGrowingConditions;
 
 function recordPlantCare(plantId, activity) {
   if (!plantId || !['watering', 'fertilizing'].includes(activity)) {
