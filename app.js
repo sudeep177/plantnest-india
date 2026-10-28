@@ -188,7 +188,8 @@ function getRecommendedInterval(plantId, activity) {
 function getPlantSchedule(plantId, activity) {
   const saved = careSchedules[plantId]?.[activity];
 
-  if (saved && Number.isFinite(saved.intervalDays)) {
+  if (saved && saved.mode === 'custom' &&
+      Number.isFinite(saved.intervalDays)) {
     return saved;
   }
 
