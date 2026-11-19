@@ -1,63 +1,73 @@
 
 const $ = id => document.getElementById(id);
 
-let plants = JSON.parse(localStorage.getItem('plantnest-plants') || '[]');
+// Storage helpers: preserve malformed data before falling back, and never
+// silently report a save as successful when browser storage is unavailable.
+function loadStoredJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed === null ? fallback : parsed;
+  } catch (error) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw !== null && localStorage.getItem(key + '-recovery-backup') === null) {
+        localStorage.setItem(key + '-recovery-backup', raw);
+      }
+    } catch (backupError) {
+      console.warn('PlantNest could not back up damaged local data:', key, backupError);
+    }
+    console.warn('PlantNest found unreadable local data:', key, error);
+    return fallback;
+  }
+}
+
+function saveStoredJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error('PlantNest could not save local data:', key, error);
+    alert('PlantNest could not save this change on this device. Your browser storage may be full or unavailable. Please free some storage and try again.');
+    return false;
+  }
+}
+
+let plants = loadStoredJSON('plantnest-plants', []);
+if (!Array.isArray(plants)) plants = [];
 
 const CARE_STORAGE_KEY = 'plantnest-care-records';
 
 let careRecords = {};
 
-try {
-  careRecords = JSON.parse(
-    localStorage.getItem(CARE_STORAGE_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  careRecords = {};
-}
+careRecords = loadStoredJSON(CARE_STORAGE_KEY, {});
+if (!careRecords || typeof careRecords !== 'object' || Array.isArray(careRecords)) careRecords = {};
 
 function saveCareRecords() {
-  localStorage.setItem(
-    CARE_STORAGE_KEY,
-    JSON.stringify(careRecords)
-  );
+  return saveStoredJSON(CARE_STORAGE_KEY, careRecords);
 }
 
 const SCHEDULE_STORAGE_KEY = 'plantnest-care-schedules';
 
 let careSchedules = {};
 
-try {
-  careSchedules = JSON.parse(
-    localStorage.getItem(SCHEDULE_STORAGE_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  careSchedules = {};
-}
+careSchedules = loadStoredJSON(SCHEDULE_STORAGE_KEY, {});
+if (!careSchedules || typeof careSchedules !== 'object' || Array.isArray(careSchedules)) careSchedules = {};
 
 function saveCareSchedules() {
-  localStorage.setItem(
-    SCHEDULE_STORAGE_KEY,
-    JSON.stringify(careSchedules)
-  );
+  return saveStoredJSON(SCHEDULE_STORAGE_KEY, careSchedules);
 }
 
 const GROWING_CONDITIONS_KEY = 'plantnest-growing-conditions';
 
 let growingConditions = {};
 
-try {
-  growingConditions = JSON.parse(
-    localStorage.getItem(GROWING_CONDITIONS_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  growingConditions = {};
-}
+growingConditions = loadStoredJSON(GROWING_CONDITIONS_KEY, {});
+if (!growingConditions || typeof growingConditions !== 'object' || Array.isArray(growingConditions)) growingConditions = {};
 
 function saveGrowingConditions() {
-  localStorage.setItem(
-    GROWING_CONDITIONS_KEY,
-    JSON.stringify(growingConditions)
-  );
+  return saveStoredJSON(GROWING_CONDITIONS_KEY, growingConditions);
 }
 function setGrowingConditions(
   plantId,
@@ -520,8 +530,7 @@ function esc(s) {
 }
 
 function saveAll() {
-  localStorage.setItem('plantnest-plants', JSON.stringify(plants));
-  render();
+  if (saveStoredJSON('plantnest-plants', plants)) render();
 }
 
 function render() {
@@ -584,6 +593,59 @@ function render() {
     ).join('');
 }
 
+
+async function prepareUploadImage(file) {
+  // Downsize large camera photos before sending them to the Worker/provider.
+  // Keep a safe fallback to the original if browser image APIs are unavailable.
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close?.();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob) return file;
+    return new File([blob], 'plantnest-upload.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (error) {
+    console.warn('Image optimisation skipped; using original photo:', error);
+    return file;
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('The request took too long. Please try again with a smaller or clearer photo.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readJsonResponse(response, fallbackMessage) {
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error('The server returned an unreadable response. Please try again later.');
+  }
+  if (!response.ok) throw new Error(data.error || fallbackMessage);
+  return data;
+}
 
 function readImage(file, cb) {
   if (!file) return;
@@ -811,22 +873,17 @@ $('identifyPlant').onclick = async () => {
   identificationResults = [];
 
   try {
+    const uploadFile = await prepareUploadImage(file);
     const form = new FormData();
-    form.append('image', file);
+    form.append('image', uploadFile);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       'https://plantnest-api.sudeep17.workers.dev',
-      {
-        method: 'POST',
-        body: form
-      }
+      { method: 'POST', body: form },
+      30000
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Identification failed.');
-    }
+    const data = await readJsonResponse(response, 'Identification failed.');
 
     if (!data.results || data.results.length === 0) {
       output.textContent =
@@ -1038,20 +1095,18 @@ $('diagnose').onclick = async () => {
     result.appendChild(status);
 
     try {
+      const uploadFile = await prepareUploadImage(file);
       const form = new FormData();
-      form.append('image', file);
+      form.append('image', uploadFile);
       form.append('organ', 'auto');
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         'https://plantnest-api.sudeep17.workers.dev/disease',
-        { method: 'POST', body: form }
+        { method: 'POST', body: form },
+        30000
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Disease identification failed.');
-      }
+      const data = await readJsonResponse(response, 'Disease identification failed.');
 
       status.remove();
 
