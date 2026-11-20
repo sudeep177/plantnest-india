@@ -1100,8 +1100,8 @@ $('diagnose').onclick = async () => {
   }
 
   if (file) {
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      result.append('Please choose a JPG or PNG photo.');
+    if (!(file.type || '').startsWith('image/')) {
+      result.append('Please choose a supported image file.');
       return;
     }
 
@@ -1119,6 +1119,9 @@ $('diagnose').onclick = async () => {
 
     try {
       const uploadFile = await prepareUploadImage(file);
+      if (!['image/jpeg', 'image/png'].includes(uploadFile.type)) {
+        throw new Error('This photo format is not supported by your browser. Please choose a JPG or PNG photo.');
+      }
       const form = new FormData();
       form.append('image', uploadFile);
       form.append('organ', 'auto');
@@ -1271,13 +1274,17 @@ $('notify').onclick = async () => {
     return;
   }
 
-  const p = await Notification.requestPermission();
-
-  alert(
-    p === 'granted'
-      ? 'Permission enabled. Scheduled reminders need a future notification service.'
-      : 'Notifications not enabled; check browser settings.'
-  );
+  try {
+    const permission = await Notification.requestPermission();
+    alert(
+      permission === 'granted'
+        ? 'Permission enabled. Scheduled reminders need a future notification service.'
+        : 'Notifications not enabled; check browser settings.'
+    );
+  } catch (error) {
+    console.warn('PlantNest could not request notification permission:', error);
+    alert('Could not request notification permission. Please check your browser settings and try again.');
+  }
 };
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
