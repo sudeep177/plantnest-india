@@ -678,7 +678,9 @@ function readImage(file, cb) {
     const image = new Image();
 
     image.onload = () => {
-      const maxSize = 1000;
+      // Keep newly added garden photos compact to reduce localStorage usage.
+      // Existing saved photos are left untouched.
+      const maxSize = 800;
       const scale = Math.min(
         1,
         maxSize / Math.max(image.width, image.height)
@@ -691,7 +693,7 @@ function readImage(file, cb) {
       const context = canvas.getContext('2d');
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-      const compressedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      const compressedPhoto = canvas.toDataURL('image/jpeg', 0.65);
       cb(compressedPhoto);
     };
 
@@ -954,11 +956,34 @@ $('save').onclick = () => {
 };
 
 window.removePlant = id => {
-  if (confirm('Remove this plant?')) {
-    const nextPlants = plants.filter(p => String(p.id) !== String(id));
-    if (nextPlants.length === plants.length) return;
-    saveAll(nextPlants);
+  const plant = plants.find(p => String(p.id) === String(id));
+  if (!plant) return;
+
+  if (!confirm('Remove ' + plant.name + ' and its care history, schedule, and growing conditions from this device?')) {
+    return;
   }
+
+  const nextPlants = plants.filter(p => String(p.id) !== String(id));
+  if (nextPlants.length === plants.length) return;
+
+  // Save the plant list first. If storage is full, keep all related history intact.
+  if (!saveStoredJSON('plantnest-plants', nextPlants)) return;
+  plants = nextPlants;
+
+  // Remove per-plant data only after the plant itself has been removed successfully.
+  const key = String(id);
+  const nextCareRecords = { ...careRecords };
+  const nextCareSchedules = { ...careSchedules };
+  const nextGrowingConditions = { ...growingConditions };
+  delete nextCareRecords[key];
+  delete nextCareSchedules[key];
+  delete nextGrowingConditions[key];
+
+  if (saveStoredJSON(CARE_STORAGE_KEY, nextCareRecords)) careRecords = nextCareRecords;
+  if (saveStoredJSON(SCHEDULE_STORAGE_KEY, nextCareSchedules)) careSchedules = nextCareSchedules;
+  if (saveStoredJSON(GROWING_CONDITIONS_KEY, nextGrowingConditions)) growingConditions = nextGrowingConditions;
+
+  render();
 };
 
 function advice(name, location) {
