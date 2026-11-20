@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'plantnest-v3';
+const CACHE_NAME = 'plantnest-v4';
 
 const ASSETS = [
   './',
@@ -52,10 +51,11 @@ self.addEventListener('fetch', event => {
   if (refreshFromNetwork) {
     event.respondWith(
       fetch(request)
-        .then(response => {
+        .then(async response => {
           if (response.ok) {
             const copy = response.clone();
-            await caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(request, copy);
           }
           return response;
         })
