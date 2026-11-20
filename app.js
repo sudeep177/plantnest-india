@@ -3,22 +3,23 @@ const $ = id => document.getElementById(id);
 
 // Storage helpers: preserve malformed data before falling back, and never
 // silently report a save as successful when browser storage is unavailable.
-function loadStoredJSON(key, fallback) {
+function loadStoredJSON(key, fallback, validate = () => true) {
+  let raw;
   try {
-    const raw = localStorage.getItem(key);
+    raw = localStorage.getItem(key);
     if (raw === null) return fallback;
     const parsed = JSON.parse(raw);
-    return parsed === null ? fallback : parsed;
+    if (validate(parsed)) return parsed;
+    throw new Error('Stored data has an unexpected structure.');
   } catch (error) {
     try {
-      const raw = localStorage.getItem(key);
       if (raw !== null && localStorage.getItem(key + '-recovery-backup') === null) {
         localStorage.setItem(key + '-recovery-backup', raw);
       }
     } catch (backupError) {
       console.warn('PlantNest could not back up damaged local data:', key, backupError);
     }
-    console.warn('PlantNest found unreadable local data:', key, error);
+    console.warn('PlantNest found unreadable or invalid local data:', key, error);
     return fallback;
   }
 }
@@ -34,15 +35,20 @@ function saveStoredJSON(key, value) {
   }
 }
 
-let plants = loadStoredJSON('plantnest-plants', []);
-if (!Array.isArray(plants)) plants = [];
+let plants = loadStoredJSON('plantnest-plants', [], value =>
+  Array.isArray(value) && value.every(item =>
+    item && typeof item === 'object' && !Array.isArray(item) &&
+    item.id != null && typeof item.name === 'string'
+  )
+);
 
 const CARE_STORAGE_KEY = 'plantnest-care-records';
 
 let careRecords = {};
 
-careRecords = loadStoredJSON(CARE_STORAGE_KEY, {});
-if (!careRecords || typeof careRecords !== 'object' || Array.isArray(careRecords)) careRecords = {};
+careRecords = loadStoredJSON(CARE_STORAGE_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveCareRecords() {
   return saveStoredJSON(CARE_STORAGE_KEY, careRecords);
@@ -52,8 +58,9 @@ const SCHEDULE_STORAGE_KEY = 'plantnest-care-schedules';
 
 let careSchedules = {};
 
-careSchedules = loadStoredJSON(SCHEDULE_STORAGE_KEY, {});
-if (!careSchedules || typeof careSchedules !== 'object' || Array.isArray(careSchedules)) careSchedules = {};
+careSchedules = loadStoredJSON(SCHEDULE_STORAGE_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveCareSchedules() {
   return saveStoredJSON(SCHEDULE_STORAGE_KEY, careSchedules);
@@ -63,8 +70,9 @@ const GROWING_CONDITIONS_KEY = 'plantnest-growing-conditions';
 
 let growingConditions = {};
 
-growingConditions = loadStoredJSON(GROWING_CONDITIONS_KEY, {});
-if (!growingConditions || typeof growingConditions !== 'object' || Array.isArray(growingConditions)) growingConditions = {};
+growingConditions = loadStoredJSON(GROWING_CONDITIONS_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveGrowingConditions() {
   return saveStoredJSON(GROWING_CONDITIONS_KEY, growingConditions);
@@ -78,14 +86,13 @@ function setGrowingConditions(
 ) {
   if (!plantId) return;
 
-  growingConditions[plantId] = {
-    location,
-    sunlight,
-    potSize,
-    drainage
+  const next = {
+    ...growingConditions,
+    [plantId]: { location, sunlight, potSize, drainage }
   };
-
-  saveGrowingConditions();
+  if (!saveStoredJSON(GROWING_CONDITIONS_KEY, next)) return false;
+  growingConditions = next;
+  return true;
 }
 
 const DEFAULT_CARE_SCHEDULE = {
@@ -225,16 +232,16 @@ function setPlantSchedule(plantId, activity, mode, intervalDays) {
     return;
   }
 
-  if (!careSchedules[plantId]) {
-    careSchedules[plantId] = {};
-  }
-
-  careSchedules[plantId][activity] = {
-    mode,
-    intervalDays: days
+  const next = {
+    ...careSchedules,
+    [plantId]: {
+      ...(careSchedules[plantId] || {}),
+      [activity]: { mode, intervalDays: days }
+    }
   };
-
-  saveCareSchedules();
+  if (!saveStoredJSON(SCHEDULE_STORAGE_KEY, next)) return false;
+  careSchedules = next;
+  return true;
 }
 
 function showCareSchedule(plantId) {
@@ -302,8 +309,16 @@ function showCareSchedule(plantId) {
     return;
   }
 
-  setPlantSchedule(plantId, 'watering', waterChoice === 'c' ? 'custom' : 'recommended', waterDays);
-  setPlantSchedule(plantId, 'fertilizing', fertChoice === 'c' ? 'custom' : 'recommended', fertDays);
+  const nextSchedules = {
+    ...careSchedules,
+    [plantId]: {
+      ...(careSchedules[plantId] || {}),
+      watering: { mode: waterChoice === 'c' ? 'custom' : 'recommended', intervalDays: waterDays },
+      fertilizing: { mode: fertChoice === 'c' ? 'custom' : 'recommended', intervalDays: fertDays }
+    }
+  };
+  if (!saveStoredJSON(SCHEDULE_STORAGE_KEY, nextSchedules)) return;
+  careSchedules = nextSchedules;
 
   alert('Care schedules saved for ' + plant.name + '.');
   render();
@@ -407,13 +422,13 @@ function showGrowingConditions(plantId) {
     return;
   }
 
-  setGrowingConditions(
+  if (!setGrowingConditions(
     plantId,
     selectedLocation,
     selectedSunlight,
     selectedPot,
     selectedDrainage
-  );
+  )) return;
 
   alert('Growing conditions saved for ' + plant.name + '.');
   render();
@@ -426,12 +441,16 @@ function recordPlantCare(plantId, activity) {
     return;
   }
 
-  if (!careRecords[plantId]) {
-    careRecords[plantId] = {};
-  }
-
-  careRecords[plantId][activity] = new Date().toISOString();
-  saveCareRecords();
+  const next = {
+    ...careRecords,
+    [plantId]: {
+      ...(careRecords[plantId] || {}),
+      [activity]: new Date().toISOString()
+    }
+  };
+  if (!saveStoredJSON(CARE_STORAGE_KEY, next)) return false;
+  careRecords = next;
+  return true;
 }
 
 function careDateLabel(dateString) {
@@ -497,7 +516,7 @@ function logPlantCare(plantId, activity) {
     return;
   }
 
-  recordPlantCare(plantId, activity);
+  if (!recordPlantCare(plantId, activity)) return;
 
   const activityLabel =
     activity === 'watering' ? 'Watering' : 'Fertilising';
@@ -529,8 +548,11 @@ function esc(s) {
   }[c]));
 }
 
-function saveAll() {
-  if (saveStoredJSON('plantnest-plants', plants)) render();
+function saveAll(nextPlants) {
+  if (!saveStoredJSON('plantnest-plants', nextPlants)) return false;
+  plants = nextPlants;
+  render();
+  return true;
 }
 
 function render() {
@@ -919,22 +941,23 @@ $('save').onclick = () => {
     return;
   }
 
-  plants.unshift({
+  const newPlant = {
     id: Date.now().toString(),
     name,
     location: $('location').value,
     photo: plantPhoto
-  });
+  };
 
-  saveAll();
+  if (!saveAll([newPlant, ...plants])) return;
   closeAdd();
-  showCare(plants[0].id);
+  showCare(newPlant.id);
 };
 
 window.removePlant = id => {
   if (confirm('Remove this plant?')) {
-    plants = plants.filter(p => p.id !== id);
-    saveAll();
+    const nextPlants = plants.filter(p => String(p.id) !== String(id));
+    if (nextPlants.length === plants.length) return;
+    saveAll(nextPlants);
   }
 };
 
