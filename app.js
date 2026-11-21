@@ -1,63 +1,81 @@
 
 const $ = id => document.getElementById(id);
 
-let plants = JSON.parse(localStorage.getItem('plantnest-plants') || '[]');
+// Storage helpers: preserve malformed data before falling back, and never
+// silently report a save as successful when browser storage is unavailable.
+function loadStoredJSON(key, fallback, validate = () => true) {
+  let raw;
+  try {
+    raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const parsed = JSON.parse(raw);
+    if (validate(parsed)) return parsed;
+    throw new Error('Stored data has an unexpected structure.');
+  } catch (error) {
+    try {
+      if (raw !== null && localStorage.getItem(key + '-recovery-backup') === null) {
+        localStorage.setItem(key + '-recovery-backup', raw);
+      }
+    } catch (backupError) {
+      console.warn('PlantNest could not back up damaged local data:', key, backupError);
+    }
+    console.warn('PlantNest found unreadable or invalid local data:', key, error);
+    return fallback;
+  }
+}
+
+function saveStoredJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error('PlantNest could not save local data:', key, error);
+    alert('PlantNest could not save this change on this device. Your browser storage may be full or unavailable. Please free some storage and try again.');
+    return false;
+  }
+}
+
+let plants = loadStoredJSON('plantnest-plants', [], value =>
+  Array.isArray(value) && value.every(item =>
+    item && typeof item === 'object' && !Array.isArray(item) &&
+    item.id != null && typeof item.name === 'string'
+  )
+);
 
 const CARE_STORAGE_KEY = 'plantnest-care-records';
 
 let careRecords = {};
 
-try {
-  careRecords = JSON.parse(
-    localStorage.getItem(CARE_STORAGE_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  careRecords = {};
-}
+careRecords = loadStoredJSON(CARE_STORAGE_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveCareRecords() {
-  localStorage.setItem(
-    CARE_STORAGE_KEY,
-    JSON.stringify(careRecords)
-  );
+  return saveStoredJSON(CARE_STORAGE_KEY, careRecords);
 }
 
 const SCHEDULE_STORAGE_KEY = 'plantnest-care-schedules';
 
 let careSchedules = {};
 
-try {
-  careSchedules = JSON.parse(
-    localStorage.getItem(SCHEDULE_STORAGE_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  careSchedules = {};
-}
+careSchedules = loadStoredJSON(SCHEDULE_STORAGE_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveCareSchedules() {
-  localStorage.setItem(
-    SCHEDULE_STORAGE_KEY,
-    JSON.stringify(careSchedules)
-  );
+  return saveStoredJSON(SCHEDULE_STORAGE_KEY, careSchedules);
 }
 
 const GROWING_CONDITIONS_KEY = 'plantnest-growing-conditions';
 
 let growingConditions = {};
 
-try {
-  growingConditions = JSON.parse(
-    localStorage.getItem(GROWING_CONDITIONS_KEY) || '{}'
-  ) || {};
-} catch (error) {
-  growingConditions = {};
-}
+growingConditions = loadStoredJSON(GROWING_CONDITIONS_KEY, {}, value =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+);
 
 function saveGrowingConditions() {
-  localStorage.setItem(
-    GROWING_CONDITIONS_KEY,
-    JSON.stringify(growingConditions)
-  );
+  return saveStoredJSON(GROWING_CONDITIONS_KEY, growingConditions);
 }
 function setGrowingConditions(
   plantId,
@@ -68,14 +86,13 @@ function setGrowingConditions(
 ) {
   if (!plantId) return;
 
-  growingConditions[plantId] = {
-    location,
-    sunlight,
-    potSize,
-    drainage
+  const next = {
+    ...growingConditions,
+    [plantId]: { location, sunlight, potSize, drainage }
   };
-
-  saveGrowingConditions();
+  if (!saveStoredJSON(GROWING_CONDITIONS_KEY, next)) return false;
+  growingConditions = next;
+  return true;
 }
 
 const DEFAULT_CARE_SCHEDULE = {
@@ -215,16 +232,16 @@ function setPlantSchedule(plantId, activity, mode, intervalDays) {
     return;
   }
 
-  if (!careSchedules[plantId]) {
-    careSchedules[plantId] = {};
-  }
-
-  careSchedules[plantId][activity] = {
-    mode,
-    intervalDays: days
+  const next = {
+    ...careSchedules,
+    [plantId]: {
+      ...(careSchedules[plantId] || {}),
+      [activity]: { mode, intervalDays: days }
+    }
   };
-
-  saveCareSchedules();
+  if (!saveStoredJSON(SCHEDULE_STORAGE_KEY, next)) return false;
+  careSchedules = next;
+  return true;
 }
 
 function showCareSchedule(plantId) {
@@ -292,8 +309,16 @@ function showCareSchedule(plantId) {
     return;
   }
 
-  setPlantSchedule(plantId, 'watering', waterChoice === 'c' ? 'custom' : 'recommended', waterDays);
-  setPlantSchedule(plantId, 'fertilizing', fertChoice === 'c' ? 'custom' : 'recommended', fertDays);
+  const nextSchedules = {
+    ...careSchedules,
+    [plantId]: {
+      ...(careSchedules[plantId] || {}),
+      watering: { mode: waterChoice === 'c' ? 'custom' : 'recommended', intervalDays: waterDays },
+      fertilizing: { mode: fertChoice === 'c' ? 'custom' : 'recommended', intervalDays: fertDays }
+    }
+  };
+  if (!saveStoredJSON(SCHEDULE_STORAGE_KEY, nextSchedules)) return;
+  careSchedules = nextSchedules;
 
   alert('Care schedules saved for ' + plant.name + '.');
   render();
@@ -397,13 +422,13 @@ function showGrowingConditions(plantId) {
     return;
   }
 
-  setGrowingConditions(
+  if (!setGrowingConditions(
     plantId,
     selectedLocation,
     selectedSunlight,
     selectedPot,
     selectedDrainage
-  );
+  )) return;
 
   alert('Growing conditions saved for ' + plant.name + '.');
   render();
@@ -416,12 +441,16 @@ function recordPlantCare(plantId, activity) {
     return;
   }
 
-  if (!careRecords[plantId]) {
-    careRecords[plantId] = {};
-  }
-
-  careRecords[plantId][activity] = new Date().toISOString();
-  saveCareRecords();
+  const next = {
+    ...careRecords,
+    [plantId]: {
+      ...(careRecords[plantId] || {}),
+      [activity]: new Date().toISOString()
+    }
+  };
+  if (!saveStoredJSON(CARE_STORAGE_KEY, next)) return false;
+  careRecords = next;
+  return true;
 }
 
 function careDateLabel(dateString) {
@@ -487,7 +516,7 @@ function logPlantCare(plantId, activity) {
     return;
   }
 
-  recordPlantCare(plantId, activity);
+  if (!recordPlantCare(plantId, activity)) return;
 
   const activityLabel =
     activity === 'watering' ? 'Watering' : 'Fertilising';
@@ -519,9 +548,11 @@ function esc(s) {
   }[c]));
 }
 
-function saveAll() {
-  localStorage.setItem('plantnest-plants', JSON.stringify(plants));
+function saveAll(nextPlants) {
+  if (!saveStoredJSON('plantnest-plants', nextPlants)) return false;
+  plants = nextPlants;
   render();
+  return true;
 }
 
 function render() {
@@ -585,6 +616,59 @@ function render() {
 }
 
 
+async function prepareUploadImage(file) {
+  // Downsize large camera photos before sending them to the Worker/provider.
+  // Keep a safe fallback to the original if browser image APIs are unavailable.
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close?.();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob) return file;
+    return new File([blob], 'plantnest-upload.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (error) {
+    console.warn('Image optimisation skipped; using original photo:', error);
+    return file;
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('The request took too long. Please try again with a smaller or clearer photo.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readJsonResponse(response, fallbackMessage) {
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error('The server returned an unreadable response. Please try again later.');
+  }
+  if (!response.ok) throw new Error(data.error || fallbackMessage);
+  return data;
+}
+
 function readImage(file, cb) {
   if (!file) return;
 
@@ -594,7 +678,9 @@ function readImage(file, cb) {
     const image = new Image();
 
     image.onload = () => {
-      const maxSize = 1000;
+      // Keep newly added garden photos compact to reduce localStorage usage.
+      // Existing saved photos are left untouched.
+      const maxSize = 800;
       const scale = Math.min(
         1,
         maxSize / Math.max(image.width, image.height)
@@ -607,7 +693,7 @@ function readImage(file, cb) {
       const context = canvas.getContext('2d');
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-      const compressedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      const compressedPhoto = canvas.toDataURL('image/jpeg', 0.65);
       cb(compressedPhoto);
     };
 
@@ -811,22 +897,17 @@ $('identifyPlant').onclick = async () => {
   identificationResults = [];
 
   try {
+    const uploadFile = await prepareUploadImage(file);
     const form = new FormData();
-    form.append('image', file);
+    form.append('image', uploadFile);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       'https://plantnest-api.sudeep17.workers.dev',
-      {
-        method: 'POST',
-        body: form
-      }
+      { method: 'POST', body: form },
+      30000
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Identification failed.');
-    }
+    const data = await readJsonResponse(response, 'Identification failed.');
 
     if (!data.results || data.results.length === 0) {
       output.textContent =
@@ -862,23 +943,47 @@ $('save').onclick = () => {
     return;
   }
 
-  plants.unshift({
+  const newPlant = {
     id: Date.now().toString(),
     name,
     location: $('location').value,
     photo: plantPhoto
-  });
+  };
 
-  saveAll();
+  if (!saveAll([newPlant, ...plants])) return;
   closeAdd();
-  showCare(plants[0].id);
+  showCare(newPlant.id);
 };
 
 window.removePlant = id => {
-  if (confirm('Remove this plant?')) {
-    plants = plants.filter(p => p.id !== id);
-    saveAll();
+  const plant = plants.find(p => String(p.id) === String(id));
+  if (!plant) return;
+
+  if (!confirm('Remove ' + plant.name + ' and its care history, schedule, and growing conditions from this device?')) {
+    return;
   }
+
+  const nextPlants = plants.filter(p => String(p.id) !== String(id));
+  if (nextPlants.length === plants.length) return;
+
+  // Save the plant list first. If storage is full, keep all related history intact.
+  if (!saveStoredJSON('plantnest-plants', nextPlants)) return;
+  plants = nextPlants;
+
+  // Remove per-plant data only after the plant itself has been removed successfully.
+  const key = String(id);
+  const nextCareRecords = { ...careRecords };
+  const nextCareSchedules = { ...careSchedules };
+  const nextGrowingConditions = { ...growingConditions };
+  delete nextCareRecords[key];
+  delete nextCareSchedules[key];
+  delete nextGrowingConditions[key];
+
+  if (saveStoredJSON(CARE_STORAGE_KEY, nextCareRecords)) careRecords = nextCareRecords;
+  if (saveStoredJSON(SCHEDULE_STORAGE_KEY, nextCareSchedules)) careSchedules = nextCareSchedules;
+  if (saveStoredJSON(GROWING_CONDITIONS_KEY, nextGrowingConditions)) growingConditions = nextGrowingConditions;
+
+  render();
 };
 
 function advice(name, location) {
@@ -1020,8 +1125,8 @@ $('diagnose').onclick = async () => {
   }
 
   if (file) {
-    if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      result.append('Please choose a JPG or PNG photo.');
+    if (!(file.type || '').startsWith('image/')) {
+      result.append('Please choose a supported image file.');
       return;
     }
 
@@ -1038,20 +1143,21 @@ $('diagnose').onclick = async () => {
     result.appendChild(status);
 
     try {
+      const uploadFile = await prepareUploadImage(file);
+      if (!['image/jpeg', 'image/png'].includes(uploadFile.type)) {
+        throw new Error('This photo format is not supported by your browser. Please choose a JPG or PNG photo.');
+      }
       const form = new FormData();
-      form.append('image', file);
+      form.append('image', uploadFile);
       form.append('organ', 'auto');
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         'https://plantnest-api.sudeep17.workers.dev/disease',
-        { method: 'POST', body: form }
+        { method: 'POST', body: form },
+        30000
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Disease identification failed.');
-      }
+      const data = await readJsonResponse(response, 'Disease identification failed.');
 
       status.remove();
 
@@ -1193,13 +1299,17 @@ $('notify').onclick = async () => {
     return;
   }
 
-  const p = await Notification.requestPermission();
-
-  alert(
-    p === 'granted'
-      ? 'Permission enabled. Scheduled reminders need a future notification service.'
-      : 'Notifications not enabled; check browser settings.'
-  );
+  try {
+    const permission = await Notification.requestPermission();
+    alert(
+      permission === 'granted'
+        ? 'Permission enabled. Scheduled reminders need a future notification service.'
+        : 'Notifications not enabled; check browser settings.'
+    );
+  } catch (error) {
+    console.warn('PlantNest could not request notification permission:', error);
+    alert('Could not request notification permission. Please check your browser settings and try again.');
+  }
 };
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
