@@ -1,6 +1,10 @@
 
 const $ = id => document.getElementById(id);
 
+// Keep production working by default. Switch this constant only after the
+// isolated development Worker is deployed and verified.
+const API_BASE_URL = API_BASE_URL;
+
 // Storage helpers: preserve malformed data before falling back, and never
 // silently report a save as successful when browser storage is unavailable.
 function loadStoredJSON(key, fallback, validate = () => true) {
