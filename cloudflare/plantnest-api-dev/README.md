@@ -33,3 +33,13 @@ npx wrangler deploy
 - `POST /disease` — disease identification
 
 The initial CORS allowlist is copied from the currently supplied Worker. Before testing from the Android app, confirm the actual Capacitor WebView origin and add it deliberately if needed.
+
+
+## Preview workflow
+
+Use the Cloudflare Worker Preview workflow for testing. Preview deployments must use Preview Base variables and secrets; do not copy secrets into this repository.
+
+- Preview command: `npx wrangler preview`
+- Required runtime secret: `PLANTNET_API_KEY`
+- Keep the existing production Worker named `plantnest-api` unchanged.
+- The app continues to use the production API URL until the Preview URL is tested and explicitly configured in the app.
