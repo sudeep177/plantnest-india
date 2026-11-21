@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 
 // Keep production working by default. Switch this constant only after the
 // isolated development Worker is deployed and verified.
-const API_BASE_URL = API_BASE_URL;
+const API_BASE_URL = 'https://plantnest-api.sudeep17.workers.dev';
 
 // Storage helpers: preserve malformed data before falling back, and never
 // silently report a save as successful when browser storage is unavailable.
@@ -906,7 +906,7 @@ $('identifyPlant').onclick = async () => {
     form.append('image', uploadFile);
 
     const response = await fetchWithTimeout(
-      'https://plantnest-api.sudeep17.workers.dev',
+      API_BASE_URL,
       { method: 'POST', body: form },
       30000
     );
@@ -1156,7 +1156,7 @@ $('diagnose').onclick = async () => {
       form.append('organ', 'auto');
 
       const response = await fetchWithTimeout(
-        'https://plantnest-api.sudeep17.workers.dev/disease',
+        API_BASE_URL + '/disease',
         { method: 'POST', body: form },
         30000
       );
